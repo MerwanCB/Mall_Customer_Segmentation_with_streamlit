@@ -1,11 +1,14 @@
 import streamlit as st
 import pandas as pd
 import os
+import joblib
+import numpy as np
 
 # --- Configuration ---
 RAW_DATA_PATH = "data/raw/mall_customers.csv"
 PROCESSED_DATA_PATH = "data/processed/clustered_customers.csv"
 FIGURES_DIR = "reports/figures"  # Directory for saved plots
+MODEL_PATH = "models/kmeans_k5_2features.joblib" # Path to the saved model
 
 # --- Helper Function ---
 def check_file(path):
@@ -97,3 +100,42 @@ except Exception as e:
     st.stop()
 
 st.success("Analysis presentation complete!")
+
+# --- Prediction Section ---
+st.header("7. Predict Cluster for a New Customer")
+st.write("Enter the details for a new customer to predict their cluster (based on the k=5, 2-feature model).")
+
+# Load the trained model
+try:
+    model = joblib.load(check_file(MODEL_PATH))
+except Exception as e:
+    st.error(f"An error occurred while loading the clustering model: {e}")
+    st.stop()
+
+# Input fields for the two features
+income = st.number_input("Annual Income (k$)", min_value=0, value=50, step=1)
+spending_score = st.number_input("Spending Score (1-100)", min_value=1, max_value=100, value=50, step=1)
+
+# Prediction button
+if st.button("Predict Cluster"):
+    if model:
+        try:
+            # Prepare input data in the same format as training data
+            input_data = np.array([[income, spending_score]])
+            prediction = model.predict(input_data)
+            # Map cluster index to a more descriptive name (optional, but good practice)
+            # These names are based on typical interpretations of the 2-feature clusters
+            cluster_names = {
+                0: "Careful Spenders (Low Income, Low Spending)",
+                1: "Standard (Average Income, Average Spending)",
+                2: "Target Group (High Income, High Spending)",
+                3: "Careless (Low Income, High Spending)",
+                4: "Sensible Savers (High Income, Low Spending)"
+            }
+            predicted_cluster_name = cluster_names.get(prediction[0], f"Cluster {prediction[0]}")
+
+            st.success(f"Predicted Cluster: **{predicted_cluster_name}**")
+        except Exception as e:
+            st.error(f"An error occurred during prediction: {e}")
+    else:
+        st.warning("Model not loaded. Cannot perform prediction.")
